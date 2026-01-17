@@ -43,7 +43,7 @@ Testing on sentiment classification (N=1099), geometric features provide +3.8% R
 ## Repository Structure
 
 ```
-mirrorfield_publication/
+geometric_safety_features/
 ├── README.md                          # This file
 ├── requirements.txt                   # Python dependencies
 ├── docs/
@@ -204,8 +204,8 @@ python experiments/behavioral_flip_paraphrase_level_analysis.py
 
 ```bash
 # Clone repository
-git clone https://github.com/DillanJC/mirrorfield_publication.git
-cd mirrorfield_publication
+git clone https://github.com/DillanJC/geometric_safety_features.git
+cd geometric_safety_features
 
 # Create virtual environment
 python -m venv venv
@@ -242,7 +242,7 @@ If you use this code or findings in your research, please cite:
 @article{coghlan2026geometric,
   title={Boundary-Stratified Evaluation of k-NN Geometric Features for AI Safety Detection},
   author={Dillan John Coghlan},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
+  journal={arXiv preprint},
   year={2026}
 }
 ```
@@ -276,7 +276,7 @@ MIT License - see LICENSE file for details
 For questions or collaboration:
 - **Author:** Dillan John Coghlan
 - **Email:** DillanJC91@Gmail.com
-- **GitHub Issues:** [github.com/DillanJC/mirrorfield_publication/issues]
+- **GitHub Issues:** [github.com/DillanJC/geometric_safety_features/issues](https://github.com/DillanJC/geometric_safety_features/issues)
 
 ---
 

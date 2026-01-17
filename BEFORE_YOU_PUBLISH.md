@@ -44,7 +44,7 @@ python -m venv test_env
 source test_env/bin/activate  # Windows: test_env\Scripts\activate
 
 # Install from scratch
-cd mirrorfield_publication
+cd geometric_safety_features
 pip install -r requirements.txt
 pip install -e .
 
@@ -175,7 +175,7 @@ grep -r "/Users/" experiments/*.py
 ### Initialize Repository
 
 ```bash
-cd mirrorfield_publication
+cd geometric_safety_features
 git init
 git add .
 git commit -m "Initial commit: Geometric safety features for AI"
@@ -286,7 +286,7 @@ git push -u origin main
 ### Common Issues
 
 **"Git won't initialize"**
-- Solution: Make sure you're in `mirrorfield_publication/` directory
+- Solution: Make sure you're in `geometric_safety_features/` directory
 
 **"pip install fails"**
 - Solution: Update pip: `pip install --upgrade pip`

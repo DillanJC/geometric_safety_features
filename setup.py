@@ -11,7 +11,7 @@ setup(
     description="k-NN Geometric Features for AI Safety Detection",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/DillanJC/mirrorfield_publication",
+    url="https://github.com/DillanJC/geometric_safety_features",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

@@ -116,7 +116,7 @@ The original `mirrorfield/` repo contained exploratory work not needed for publi
 ## Directory Structure
 
 ```
-mirrorfield_publication/
+geometric_safety_features/
 ├── README.md                    ⭐ Main entry point
 ├── INSTALLATION.md              📘 Setup guide
 ├── LICENSE                      ⚖️ MIT license
@@ -168,11 +168,11 @@ mirrorfield_publication/
 
 ### 2. Create GitHub Repository
 ```bash
-cd mirrorfield_publication
+cd geometric_safety_features
 git init
 git add .
 git commit -m "Initial commit: Geometric safety features for AIES"
-git remote add origin https://github.com/DillanJC/mirrorfield_publication.git
+git remote add origin https://github.com/DillanJC/geometric_safety_features.git
 git push -u origin main
 ```
 

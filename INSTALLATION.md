@@ -12,8 +12,8 @@ pip install -e .
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/DillanJC/mirrorfield_publication.git
-cd mirrorfield_publication
+git clone https://github.com/DillanJC/geometric_safety_features.git
+cd geometric_safety_features
 ```
 
 ### 2. Create Virtual Environment
@@ -177,5 +177,5 @@ Coming soon: Dockerfile for containerized deployment.
 ## Need Help?
 
 - **Documentation:** See `docs/TECHNICAL_REPORT.md`
-- **Issues:** [GitHub Issues](https://github.com/DillanJC/mirrorfield_publication/issues)
+- **Issues:** [GitHub Issues](https://github.com/DillanJC/geometric_safety_features/issues)
 - **Email:** DillanJC91@Gmail.com

@@ -84,7 +84,7 @@ If you use this dataset, please cite our paper:
 
 For data access requests:
 - **Email:** DillanJC91@Gmail.com
-- **GitHub Issues:** [github.com/DillanJC/mirrorfield_publication/issues]
+- **GitHub Issues:** [github.com/DillanJC/geometric_safety_features/issues](https://github.com/DillanJC/geometric_safety_features/issues)
 
 ---
 
