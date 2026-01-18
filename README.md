@@ -8,6 +8,10 @@
 
 ---
 
+> **New here?** Start with [`ONBOARDING.md`](ONBOARDING.md) for the research narrative—what we tried, what failed, and what we actually found.
+
+---
+
 ## Overview
 
 This repository contains the implementation and experimental code for our paper on using k-NN geometric features to detect high-uncertainty regions in AI embedding spaces, with applications to AI safety.
@@ -46,6 +50,7 @@ Testing on sentiment classification (N=1099), geometric features provide +3.8% R
 ```
 geometric_safety_features/
 ├── README.md                          # This file
+├── ONBOARDING.md                      # Start here: research narrative & guide
 ├── requirements.txt                   # Python dependencies
 ├── docs/
 │   ├── TECHNICAL_REPORT.md           # Full technical paper (~13,500 words)
