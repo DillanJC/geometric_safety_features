@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geometric-safety-features"
+version = "1.0.0"
+description = "Geometric features for AI safety: detect uncertain regions in embedding spaces"
+readme = "README.md"
+authors = [
+    {name = "Dillan Coghlan", email = "DillanJC91@gmail.com"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = ["ai-safety", "uncertainty", "embeddings", "geometric", "knn", "out-of-distribution"]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.3.0",
+]
+
+[project.optional-dependencies]
+faiss = ["faiss-cpu>=1.7.0"]
+visualization = ["matplotlib>=3.7.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/DillanJC/geometric_safety_features"
+Repository = "https://github.com/DillanJC/geometric_safety_features"
+Issues = "https://github.com/DillanJC/geometric_safety_features/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mirrorfield*"]
+exclude = ["tests*", "examples*", "notebooks*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88

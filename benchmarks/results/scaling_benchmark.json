@@ -1,0 +1,42 @@
+[
+  {
+    "n_samples": 1000,
+    "n_features": 128,
+    "engine": "sklearn",
+    "k": 20,
+    "init_time": 0.00043000001460313797,
+    "compute_time": 1.369702500058338,
+    "total_time": 1.3701325000729412,
+    "queries_per_sec": 73.00855477429648
+  },
+  {
+    "n_samples": 1000,
+    "n_features": 256,
+    "engine": "sklearn",
+    "k": 20,
+    "init_time": 0.000381499994546175,
+    "compute_time": 0.026822499930858612,
+    "total_time": 0.027203999925404787,
+    "queries_per_sec": 3728.2132634084755
+  },
+  {
+    "n_samples": 5000,
+    "n_features": 128,
+    "engine": "sklearn",
+    "k": 20,
+    "init_time": 0.000658900011330843,
+    "compute_time": 0.09812139999121428,
+    "total_time": 0.09878030000254512,
+    "queries_per_sec": 5095.728353292652
+  },
+  {
+    "n_samples": 5000,
+    "n_features": 256,
+    "engine": "sklearn",
+    "k": 20,
+    "init_time": 0.0007536000339314342,
+    "compute_time": 0.12286000000312924,
+    "total_time": 0.12361360003706068,
+    "queries_per_sec": 4069.6727982033617
+  }
+]

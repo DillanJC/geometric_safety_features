@@ -1,261 +1,170 @@
 """
-Geometry Bundle — Integration Layer (v2.0)
+Geometry Bundle — Core API for Geometric Safety Features
 
-Combines all geometric features into schema-compliant outputs.
-
-Responsibilities:
-- Compute all 7 k-NN features
-- Compute centroid anchor
-- Package into GeometryOutputSchema v2.0 format (continuous features only)
-- Reference-only computation (batch-order invariant)
-- Batch-order invariant
-
-v2.0 Changes:
-- Removed dark_river_candidate and observer_mode binary detection
-- Removed binary threshold parameters from __init__
-- get_flags() and summarize() updated to remove dark river stats
+Provides a clean interface to compute 7 geometric features from embeddings
+for AI safety diagnostics, focusing on uncertainty near decision boundaries.
 """
 
 import numpy as np
-from typing import List, Dict, Any, Optional
-from .schema import create_record, SCHEMA_VERSION
-from .features import (
-    compute_knn_features,
-    compute_centroid_anchor,
-    compute_reference_hash,
-    compute_config_hash
-)
+from typing import Dict, Optional, Any
+from .features import compute_knn_features
+from .engines import create_engine, NNEngine
 
 
 class GeometryBundle:
     """
-    Main interface for computing geometric features.
+    Main API for computing geometric safety features on embedding spaces.
 
-    Usage:
-        bundle = GeometryBundle(reference_embeddings, k=50)
-        results = bundle.compute(query_embeddings)
+    This library provides geometric features for AI safety diagnostics. Rigorous evaluation
+    identifies `knn_std_distance` (local neighborhood spread) as the most consistent signal
+    for detecting high-uncertainty boundary regions.
+
+    Parameters
+    ----------
+    reference_embeddings : np.ndarray
+        Reference embeddings of shape (n_reference, n_dimensions).
+        These form the "known" space against which queries are compared.
+    k : int, default=50
+        Number of nearest neighbors to consider for feature computation.
+
+    Attributes
+    ----------
+    features_available : List[str]
+        List of feature names that can be computed.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mirrorfield.geometry import GeometryBundle
+    >>>
+    >>> # Create sample embeddings
+    >>> reference = np.random.randn(1000, 256)
+    >>> query = np.random.randn(100, 256)
+    >>>
+    >>> # Initialize bundle
+    >>> bundle = GeometryBundle(reference, k=50)
+    >>>
+    >>> # Compute features
+    >>> features = bundle.compute(query)
+    >>> uncertainty_scores = features['knn_std_distance']
+    >>> print(f"Computed {len(uncertainty_scores)} uncertainty scores")
     """
 
     def __init__(
-        self,
-        reference_embeddings: np.ndarray,
-        k: int = 50,
-        metric: str = 'euclidean'
+        self, reference_embeddings: np.ndarray, k: int = 50, engine: str = "auto"
     ):
         """
-        Initialize geometry bundle with reference set.
+        Initialize the GeometryBundle with reference embeddings.
 
-        Args:
-            reference_embeddings: Reference embeddings (N_ref, D)
-            k: Number of neighbors (default: 50, validated optimum)
-            metric: Distance metric (default: 'euclidean')
+        Parameters
+        ----------
+        reference_embeddings : np.ndarray
+            Reference embeddings of shape (n_reference, n_dimensions).
+        k : int, default=50
+            Number of nearest neighbors to use for feature computation.
+        engine : str, default="auto"
+            NN backend: "sklearn", "faiss", or "auto" (chooses based on data size).
         """
         self.reference_embeddings = reference_embeddings
         self.k = k
-        self.metric = metric
+        self.engine_name = engine
+        self._engine = create_engine(reference_embeddings, engine=engine)
+        self.feature_names = [
+            "knn_mean_distance",
+            "knn_std_distance",
+            "knn_min_distance",
+            "knn_max_distance",
+            "local_curvature",
+            "ridge_proximity",
+            "dist_to_ref_nearest",
+        ]
 
-        # Compute reference statistics (kept for potential future use)
-        ref_centroid = reference_embeddings.mean(axis=0)
-        ref_distances = np.linalg.norm(reference_embeddings - ref_centroid, axis=1)
-        self.reference_std = ref_distances.std()
-
-        # Compute hashes for artifact discipline
-        self.ref_hash = compute_reference_hash(reference_embeddings)
-        self.config_hash = compute_config_hash(k, metric)
-
-    def compute(
-        self,
-        query_embeddings: np.ndarray,
-        boundary_distances: Optional[np.ndarray] = None,
-        check_collapse: bool = True
-    ) -> List[Dict[str, Any]]:
+    def compute(self, query_embeddings) -> Dict[str, np.ndarray]:
         """
-        Compute geometry bundle for query embeddings.
+        Compute geometric safety features for query embeddings.
 
-        Args:
-            query_embeddings: Query points (N_query, D)
-            boundary_distances: Optional boundary distances for collapse check
-            check_collapse: If True, check for ridge-boundary correlation
+        Parameters
+        ----------
+        query_embeddings : np.ndarray or Dict[str, np.ndarray]
+            Query embeddings of shape (n_queries, n_dimensions).
+            Alternatively, a dict with 'query' key for query embeddings,
+            and optionally 'reference' to override the reference embeddings.
 
-        Returns:
-            List of geometry records (one per query point)
+        Returns
+        -------
+        Dict[str, np.ndarray]
+            Dictionary mapping feature names to computed values.
+            Each value is a 1D array of length n_queries.
         """
-        N_query = len(query_embeddings)
+        if isinstance(query_embeddings, dict):
+            query = query_embeddings["query"]
+            reference = query_embeddings.get("reference", self.reference_embeddings)
+        else:
+            query = query_embeddings
+            reference = self.reference_embeddings
 
-        # Compute k-NN features
-        knn_features, knn_metadata = compute_knn_features(
-            query_embeddings,
-            self.reference_embeddings,
-            k=self.k,
-            metric=self.metric,
-            check_collapse=check_collapse,
-            boundary_distances=boundary_distances
+        # Compute k-NN features using the selected engine
+        knn_features, _ = compute_knn_features(
+            query, reference, k=self.k, engine=self._engine
         )
 
-        # Compute centroid anchor
-        centroid_anchors = compute_centroid_anchor(
-            query_embeddings,
-            self.reference_embeddings
-        )
-
-        # Extract individual features
-        knn_mean = knn_features[:, 0]
-        knn_std = knn_features[:, 1]
-        knn_min = knn_features[:, 2]
-        knn_max = knn_features[:, 3]
-        local_curvature = knn_features[:, 4]
-        ridge_proximity = knn_features[:, 5]
-        nearest_dist = knn_features[:, 6]
-
-        # Package results (v2.0: no binary flags)
-        results = []
-        for i in range(N_query):
-            record = create_record(
-                dist_to_ref_mean=float(centroid_anchors[i]),
-                dist_to_ref_nearest=float(nearest_dist[i]),
-                knn_mean_distance=float(knn_mean[i]),
-                knn_std_distance=float(knn_std[i]),
-                knn_min_distance=float(knn_min[i]),
-                knn_max_distance=float(knn_max[i]),
-                local_curvature=float(local_curvature[i]),
-                ridge_proximity=float(ridge_proximity[i]),
-                ref_hash=self.ref_hash,
-                config_hash=self.config_hash,
-                k_neighbors=self.k
-            )
-            results.append(record)
-
-        # Add metadata to first record (for debugging)
-        if results:
-            results[0]['_metadata'] = knn_metadata
-
-        return results
-
-    def compute_batch(
-        self,
-        query_embeddings: np.ndarray,
-        batch_size: int = 100,
-        boundary_distances: Optional[np.ndarray] = None,
-        check_collapse: bool = True
-    ) -> List[Dict[str, Any]]:
-        """
-        Compute geometry bundle in batches (for large query sets).
-
-        Args:
-            query_embeddings: Query points (N_query, D)
-            batch_size: Batch size for processing
-            boundary_distances: Optional boundary distances
-            check_collapse: Check collapse only on first batch
-
-        Returns:
-            List of geometry records
-        """
-        N = len(query_embeddings)
-        all_results = []
-
-        for start_idx in range(0, N, batch_size):
-            end_idx = min(start_idx + batch_size, N)
-            batch_embeddings = query_embeddings[start_idx:end_idx]
-
-            batch_boundary = None
-            if boundary_distances is not None:
-                batch_boundary = boundary_distances[start_idx:end_idx]
-
-            # Only check collapse on first batch
-            batch_check_collapse = check_collapse and (start_idx == 0)
-
-            batch_results = self.compute(
-                batch_embeddings,
-                batch_boundary,
-                batch_check_collapse
-            )
-
-            all_results.extend(batch_results)
-
-        return all_results
-
-    def get_feature_matrix(self, results: List[Dict[str, Any]]) -> np.ndarray:
-        """
-        Extract 7-feature matrix from geometry results.
-
-        Useful for downstream ML models.
-
-        Args:
-            results: List of geometry records from compute()
-
-        Returns:
-            features: (N, 7) array of geometric features
-        """
-        N = len(results)
-        features = np.zeros((N, 7), dtype=np.float32)
-
-        for i, record in enumerate(results):
-            features[i, 0] = record['knn_mean_distance']
-            features[i, 1] = record['knn_std_distance']
-            features[i, 2] = record['knn_min_distance']
-            features[i, 3] = record['knn_max_distance']
-            features[i, 4] = record['local_curvature']
-            features[i, 5] = record['ridge_proximity']
-            features[i, 6] = record['dist_to_ref_nearest']
+        # Extract features into dict
+        features = {}
+        feature_names = self.feature_names
+        for i, name in enumerate(feature_names):
+            features[name] = knn_features[:, i]
 
         return features
 
-    def summarize(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def get_feature_matrix(self, features: Dict[str, np.ndarray]) -> np.ndarray:
         """
-        Summarize geometry bundle results.
+        Extract feature matrix from computed features dict.
 
-        Args:
-            results: List of geometry records
+        Useful for downstream ML models.
 
-        Returns:
-            Summary statistics
+        Parameters
+        ----------
+        features : Dict[str, np.ndarray]
+            Features dict from compute().
+
+        Returns
+        -------
+        np.ndarray
+            (N, 7) array of geometric features.
         """
-        N = len(results)
+        N = len(next(iter(features.values())))
+        feature_matrix = np.zeros((N, len(self.feature_names)), dtype=np.float32)
 
-        # Extract features
-        features = self.get_feature_matrix(results)
+        for i, name in enumerate(self.feature_names):
+            feature_matrix[:, i] = features[name]
 
-        summary = {
-            'n_samples': N,
-            'feature_statistics': {
-                'knn_mean_distance': {
-                    'mean': float(features[:, 0].mean()),
-                    'std': float(features[:, 0].std()),
-                    'min': float(features[:, 0].min()),
-                    'max': float(features[:, 0].max())
-                },
-                'knn_std_distance': {
-                    'mean': float(features[:, 1].mean()),
-                    'std': float(features[:, 1].std()),
-                    'min': float(features[:, 1].min()),
-                    'max': float(features[:, 1].max())
-                },
-                'knn_max_distance': {
-                    'mean': float(features[:, 3].mean()),
-                    'std': float(features[:, 3].std()),
-                    'min': float(features[:, 3].min()),
-                    'max': float(features[:, 3].max())
-                },
-                'local_curvature': {
-                    'mean': float(features[:, 4].mean()),
-                    'std': float(features[:, 4].std()),
-                    'min': float(features[:, 4].min()),
-                    'max': float(features[:, 4].max())
-                },
-                'ridge_proximity': {
-                    'mean': float(features[:, 5].mean()),
-                    'std': float(features[:, 5].std()),
-                    'min': float(features[:, 5].min()),
-                    'max': float(features[:, 5].max())
-                }
-            },
-            'reference_hash': self.ref_hash,
-            'config_hash': self.config_hash,
-            'schema_version': SCHEMA_VERSION
-        }
+        return feature_matrix
 
-        # Add metadata from first result if available
-        if results and '_metadata' in results[0]:
-            summary['computation_metadata'] = results[0]['_metadata']
+    def summarize(self, features: Dict[str, np.ndarray]) -> Dict[str, Any]:
+        """
+        Summarize computed features.
+
+        Parameters
+        ----------
+        features : Dict[str, np.ndarray]
+            Features dict from compute().
+
+        Returns
+        -------
+        Dict[str, Any]
+            Summary statistics.
+        """
+        N = len(next(iter(features.values())))
+
+        summary = {"n_samples": N, "feature_statistics": {}}
+
+        for name in self.feature_names:
+            values = features[name]
+            summary["feature_statistics"][name] = {
+                "mean": float(values.mean()),
+                "std": float(values.std()),
+                "min": float(values.min()),
+                "max": float(values.max()),
+            }
 
         return summary

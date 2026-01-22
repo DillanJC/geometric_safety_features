@@ -34,7 +34,7 @@ def compute_reference_hash(reference_embeddings: np.ndarray) -> str:
     return hashlib.sha256(reference_embeddings.tobytes()).hexdigest()[:16]
 
 
-def compute_config_hash(k: int, metric: str = 'euclidean') -> str:
+def compute_config_hash(k: int, metric: str = "euclidean") -> str:
     """
     Compute hash of configuration for reproducibility.
 
@@ -53,9 +53,10 @@ def compute_knn_features(
     query_embeddings: np.ndarray,
     reference_embeddings: np.ndarray,
     k: int = 50,
-    metric: str = 'euclidean',
+    metric: str = "euclidean",
+    engine=None,
     check_collapse: bool = True,
-    boundary_distances: Optional[np.ndarray] = None
+    boundary_distances: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, dict]:
     """
     Compute 7 k-NN geometric features (reference-only, batch-order invariant).
@@ -95,12 +96,13 @@ def compute_knn_features(
     if k >= N_ref:
         raise ValueError(f"k={k} must be < N_ref={N_ref}")
 
-    # Build k-NN index on REFERENCE ONLY
-    nn = NearestNeighbors(n_neighbors=k, algorithm='auto', metric=metric)
-    nn.fit(reference_embeddings)  # ← Reference-only!
-
-    # Query against reference (queries NEVER added to index)
-    distances, indices = nn.kneighbors(query_embeddings)
+    # Use provided engine or default to sklearn
+    if engine is None:
+        nn = NearestNeighbors(n_neighbors=k, algorithm="auto", metric="euclidean")
+        nn.fit(reference_embeddings)
+        distances, indices = nn.kneighbors(query_embeddings)
+    else:
+        distances, indices = engine.kneighbors(query_embeddings, k)
 
     # Initialize features
     features = np.zeros((N_query, 7), dtype=np.float32)
@@ -149,39 +151,39 @@ def compute_knn_features(
 
     # Collapse check (Algebra v2 warning)
     metadata = {
-        'n_query': N_query,
-        'n_reference': N_ref,
-        'k': k,
-        'metric': metric,
-        'feature_means': features.mean(axis=0).tolist(),
-        'feature_stds': features.std(axis=0).tolist()
+        "n_query": N_query,
+        "n_reference": N_ref,
+        "k": k,
+        "metric": metric,
+        "feature_means": features.mean(axis=0).tolist(),
+        "feature_stds": features.std(axis=0).tolist(),
     }
 
     if check_collapse and boundary_distances is not None:
         # Check correlation between ridge proximity (feature 5) and boundary distance
         from scipy.stats import pearsonr
+
         ridge_vals = features[:, 5]
         corr, _ = pearsonr(ridge_vals, boundary_distances)
 
         if abs(corr) > 0.9:
-            metadata['warning'] = 'RIDGE_COLLAPSE'
-            metadata['ridge_boundary_correlation'] = float(corr)
-            metadata['message'] = (
+            metadata["warning"] = "RIDGE_COLLAPSE"
+            metadata["ridge_boundary_correlation"] = float(corr)
+            metadata["message"] = (
                 f"Ridge proximity highly correlated with boundary distance (r={corr:.3f}). "
                 "Geometry may be redundant with baseline metric."
             )
         else:
-            metadata['ridge_boundary_correlation'] = float(corr)
-            metadata['collapse_check'] = 'PASS'
+            metadata["ridge_boundary_correlation"] = float(corr)
+            metadata["collapse_check"] = "PASS"
     else:
-        metadata['collapse_check'] = 'SKIPPED'
+        metadata["collapse_check"] = "SKIPPED"
 
     return features, metadata
 
 
 def compute_centroid_anchor(
-    query_embeddings: np.ndarray,
-    reference_embeddings: np.ndarray
+    query_embeddings: np.ndarray, reference_embeddings: np.ndarray
 ) -> np.ndarray:
     """
     Compute mean distance from each query to reference set.
@@ -202,7 +204,7 @@ def detect_dark_rivers(
     local_curvature: np.ndarray,
     ridge_proximity: np.ndarray,
     curvature_threshold: float = 0.5,
-    ridge_threshold: float = 2.0
+    ridge_threshold: float = 2.0,
 ) -> np.ndarray:
     """
     Detect Dark River candidates: low curvature + high ridge.
@@ -230,7 +232,7 @@ def detect_observer_mode(
     centroid_anchor: np.ndarray,
     reference_std: float,
     curvature_threshold: float = 1.0,
-    anchor_multiplier: float = 1.5
+    anchor_multiplier: float = 1.5,
 ) -> np.ndarray:
     """
     Legacy function: Detect low curvature + close to reference centroid.
@@ -262,7 +264,7 @@ def batch_invariance_test(
     reference_embeddings: np.ndarray,
     k: int = 50,
     n_permutations: int = 10,
-    seed: int = 42
+    seed: int = 42,
 ) -> bool:
     """
     Test batch-order invariance: batch permutation invariance.
@@ -290,7 +292,9 @@ def batch_invariance_test(
         perm = np.random.permutation(N)
         embeddings_perm = embeddings[perm]
 
-        features_perm, _ = compute_knn_features(embeddings_perm, reference_embeddings, k=k)
+        features_perm, _ = compute_knn_features(
+            embeddings_perm, reference_embeddings, k=k
+        )
 
         # Undo permutation and compare
         features_unperm = features_perm[np.argsort(perm)]
@@ -301,13 +305,63 @@ def batch_invariance_test(
     return True
 
 
+# Individual feature computation functions
+def knn_mean_distance(distances: np.ndarray) -> float:
+    """Mean distance to k nearest neighbors."""
+    return float(np.mean(distances))
+
+
+def knn_std_distance(distances: np.ndarray) -> float:
+    """Standard deviation of distances to k nearest neighbors."""
+    return float(np.std(distances))
+
+
+def knn_min_distance(distances: np.ndarray) -> float:
+    """Minimum distance to k nearest neighbors."""
+    return float(np.min(distances))
+
+
+def knn_max_distance(distances: np.ndarray) -> float:
+    """Maximum distance to k nearest neighbors."""
+    return float(np.max(distances))
+
+
+def local_curvature(
+    neighbor_embeddings: np.ndarray, query_embedding: np.ndarray
+) -> float:
+    """Local curvature via SVD eigenvalue ratio."""
+    # Center neighbors around query
+    centered = neighbor_embeddings - query_embedding
+
+    # SVD
+    U, S, Vt = np.linalg.svd(centered, full_matrices=False)
+
+    # Curvature = smallest / largest singular value
+    if S[0] > 1e-10:
+        return float(S[-1] / S[0])
+    else:
+        return 0.0
+
+
+def ridge_proximity(distances: np.ndarray) -> float:
+    """Ridge proximity (coefficient of variation)."""
+    mean_dist = np.mean(distances)
+    std_dist = np.std(distances)
+    return float(std_dist / (mean_dist + 1e-6))
+
+
+def dist_to_ref_nearest(distances: np.ndarray) -> float:
+    """Distance to nearest reference point."""
+    return float(np.min(distances))
+
+
 # Feature names for reference
 FEATURE_NAMES = [
-    'knn_mean_distance',
-    'knn_std_distance',
-    'knn_min_distance',
-    'knn_max_distance',
-    'local_curvature',
-    'ridge_proximity',
-    'dist_to_ref_nearest'
+    "knn_mean_distance",
+    "knn_std_distance",
+    "knn_min_distance",
+    "knn_max_distance",
+    "local_curvature",
+    "ridge_proximity",
+    "dist_to_ref_nearest",
 ]
