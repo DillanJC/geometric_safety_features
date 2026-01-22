@@ -16,7 +16,7 @@
 
 This repository contains the implementation and experimental code for our paper on using k-NN geometric features to detect high-uncertainty regions in AI embedding spaces, with applications to AI safety.
 
-**Key Finding:** Corrected evaluation with proper train/test splits shows significant improvements in borderline and unsafe zones, demonstrating the value of geometric features in high-uncertainty regions.
+**Key Finding:** Rigorous, boundary-stratified evaluation demonstrates that geometric features, particularly those measuring **local dispersion (e.g., `knn_std_distance`)**, are powerful and validated tools for detecting high-uncertainty regions where models are most likely to fail.
 
 ---
 
@@ -179,7 +179,7 @@ To address criticism about a lack of rigor, a comprehensive evaluation harness (
 | # | Feature | Description |
 |---|---|-------------|
 | 1 | `knn_mean_distance` | Average distance to k=50 nearest neighbors |
-| 2 | `knn_std_distance` | Std deviation of neighbor distances (top feature) |
+| 2 | `knn_std_distance` | Std deviation of neighbor distances. A measure of local dispersion, validated in the literature as a key signal for uncertainty (e.g., Bahri et al., 2021). |
 | 3 | `knn_min_distance` | Distance to nearest neighbor |
 | 4 | `knn_max_distance` | Distance to farthest of k neighbors |
 | 5 | `local_curvature` | Manifold anisotropy via SVD (σ_min/σ_max) |
@@ -338,6 +338,12 @@ If you use this code or findings in your research, please cite:
 5. **Behavioral flip validation** demonstrating geometry predicts robustness under paraphrasing (AUC=0.707)
 
 6. **Production-ready implementation** with frozen schema v2.0 and comprehensive testing
+
+---
+
+## Future Work
+
+A promising direction for future work is the integration of Approximate Nearest Neighbor (ANN) libraries such as FAISS or HNSWLib. While this repository uses exact k-NN for precision, ANN methods could enable these geometric safety features to be applied at a much larger scale, making them suitable for real-time, high-throughput production systems.
 
 ---
 
